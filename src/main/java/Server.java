@@ -1,28 +1,51 @@
-package client;
-
-import server.Server;
-
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class ClientHandler implements Runnable {
-    private Socket client;
-    private BufferedReader in;
-    private BufferedOutputStream out;
+public class Server implements Runnable {
+    final String WEB_ROOT = ".";
+    static final int PORT = 9999;
+    final String WEB_ROOT_DIR = "public";
+    final String MAIN_INDEX = "/index.html";
+    final static int THREADS_QUANTITY_VALUE = 2;
+    public static final List<String> validPaths = List.of("/index.html");
+    final static ExecutorService pool = Executors.newFixedThreadPool(THREADS_QUANTITY_VALUE);
+    public Socket serverSocket;
 
-    public ClientHandler(Socket client) throws IOException {
-        this.client = client;
-        in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-        out = new BufferedOutputStream(client.getOutputStream());
+    public Server(Socket socket) {
+        this.serverSocket = socket;
+    }
+
+    public static void startServer() {
+        try (var serverSocket = new ServerSocket(PORT)) {
+            System.out.printf("Server started on %d port\n", PORT);
+            startConnection(serverSocket);
+        } catch (IOException e) {
+            System.err.printf("Server error: %s", e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void startConnection(ServerSocket serverSocket) throws IOException {
+        while (true) {
+            Server server = new Server(serverSocket.accept());
+            pool.execute(server);
+        }
     }
 
     @Override
     public void run() {
-        System.out.println("Started to work");
-        try {
+        try (final var in = new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
+             final var out = new BufferedOutputStream(serverSocket.getOutputStream())) {
             while (true) {
                 // read only request line for simplicity
                 // must be in form GET /path HTTP/1.1
@@ -49,11 +72,11 @@ public class ClientHandler implements Runnable {
                     continue;
                 }
 
-                final var filePath = Path.of(".", "public", path);
+                final var filePath = Path.of(WEB_ROOT, WEB_ROOT_DIR, path);
                 final var mimeType = Files.probeContentType(filePath);
 
                 // special case for classic
-                if (path.equals("/classic.html")) {
+                if (path.equals(MAIN_INDEX)) {
                     final var template = Files.readString(filePath);
                     final var content = template.replace(
                             "{time}",
@@ -84,13 +107,7 @@ public class ClientHandler implements Runnable {
             }
         } catch (IOException e) {
             e.printStackTrace();
-        } finally {
-            try {
-                out.close();
-                in.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            System.err.printf("Server error: %s", e.getMessage());
         }
     }
 }
