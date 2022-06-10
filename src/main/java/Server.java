@@ -1,67 +1,71 @@
+import interfaces.Handler;
+import interfaces.HandlerException;
+import interfaces.HandlersMap;
+import interfaces.Request;
+
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Server implements Runnable {
-    final String WEB_ROOT = ".";
-    static final int PORT = 9999;
-    final String WEB_ROOT_DIR = "public";
-    final String MAIN_INDEX = "/index.html";
-    final static int THREADS_QUANTITY_VALUE = 2;
-    public static final List<String> validPaths = List.of("/index.html");
+    final static int THREADS_QUANTITY_VALUE = 64;
     final static ExecutorService pool = Executors.newFixedThreadPool(THREADS_QUANTITY_VALUE);
-    public Socket serverSocket;
+    public static Socket socket;
+    public static final List<String> validPaths = List.of("/index.html");
 
     public Server(Socket socket) {
-        this.serverSocket = socket;
+        this.socket = socket;
     }
 
-    public static void startServer() {
-        try (var serverSocket = new ServerSocket(PORT)) {
-            System.out.printf("Server started on %d port\n", PORT);
-            startConnection(serverSocket);
+    public static void startServer(int port) {
+        try (var serverSocket = new ServerSocket(port)) {
+            System.out.printf("Server started on %d port\n", port);
+            while (true) {
+                Server server = new Server(serverSocket.accept());
+                pool.execute(server);
+            }
         } catch (IOException e) {
             System.err.printf("Server error: %s", e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public static void startConnection(ServerSocket serverSocket) throws IOException {
-        while (true) {
-            Server server = new Server(serverSocket.accept());
-            pool.execute(server);
-        }
+    public static void addHandler(String method, String uri, Handler handler) throws HandlerException {
+        HandlersMap.addHandler(new Request(method, uri), handler);
     }
 
     @Override
     public void run() {
-        try (final var in = new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
-             final var out = new BufferedOutputStream(serverSocket.getOutputStream())) {
+        try (final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             final var out = new BufferedOutputStream(socket.getOutputStream())) {
             while (true) {
-                // read only request line for simplicity
-                // must be in form GET /path HTTP/1.1
                 final var requestLine = in.readLine();
                 if (requestLine == null) {
                     continue;
                 }
                 final var parts = requestLine.split(" ");
-
                 if (parts.length != 3) {
-                    // just close socket
                     continue;
                 }
-
+                for (String str : parts) {
+                    System.out.println(str);
+                }
+                final var method = parts[0];
                 final var path = parts[1];
-                if (!Server.validPaths.contains(path)) {
+                final var body = parts[2];
+                final Request req;
+                if (body != null) {
+                    req = new Request(method, path, body);
+                } else {
+                    req = new Request(method, path);
+                }
+                if (!Server.validPaths.contains(req.getUri())) {
                     out.write((
                             "HTTP/1.1 404 Not Found\r\n" +
                                     "Content-Length: 0\r\n" +
@@ -71,41 +75,9 @@ public class Server implements Runnable {
                     out.flush();
                     continue;
                 }
-
-                final var filePath = Path.of(WEB_ROOT, WEB_ROOT_DIR, path);
-                final var mimeType = Files.probeContentType(filePath);
-
-                // special case for classic
-                if (path.equals(MAIN_INDEX)) {
-                    final var template = Files.readString(filePath);
-                    final var content = template.replace(
-                            "{time}",
-                            LocalDateTime.now().toString()
-                    ).getBytes();
-                    out.write((
-                            "HTTP/1.1 200 OK\r\n" +
-                                    "Content-Type: " + mimeType + "\r\n" +
-                                    "Content-Length: " + content.length + "\r\n" +
-                                    "Connection: close\r\n" +
-                                    "\r\n"
-                    ).getBytes());
-                    out.write(content);
-                    out.flush();
-                    continue;
-                }
-
-                final var length = Files.size(filePath);
-                out.write((
-                        "HTTP/1.1 200 OK\r\n" +
-                                "Content-Type: " + mimeType + "\r\n" +
-                                "Content-Length: " + length + "\r\n" +
-                                "Connection: close\r\n" +
-                                "\r\n"
-                ).getBytes());
-                Files.copy(filePath, out);
-                out.flush();
+                HandlersMap.getHandler(req).handle(req, out);
             }
-        } catch (IOException e) {
+        } catch (IOException | HandlerException e) {
             e.printStackTrace();
             System.err.printf("Server error: %s", e.getMessage());
         }
