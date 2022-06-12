@@ -53,9 +53,6 @@ public class Server implements Runnable {
                 if (parts.length != 3) {
                     continue;
                 }
-                for (String str : parts) {
-                    System.out.println(str);
-                }
                 final var method = parts[0];
                 final var path = parts[1];
                 final var body = parts[2];
