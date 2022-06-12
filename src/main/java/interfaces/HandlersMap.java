@@ -1,9 +1,10 @@
 package interfaces;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HandlersMap {
-    private static final Map<String, Map<String, Handler>> handlers = new HashMap<>();
+    private static final Map<String, Map<String, Handler>> handlers = new ConcurrentHashMap<>();
 
     public static Handler getHandler(Request req) throws HandlerException {
         if (handlers.containsKey(req.getMethod())) {
