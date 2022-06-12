@@ -9,15 +9,25 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
 
 public class Server implements Runnable {
     final static int THREADS_QUANTITY_VALUE = 64;
     final static ExecutorService pool = Executors.newFixedThreadPool(THREADS_QUANTITY_VALUE);
     public static Socket socket;
     public static final List<String> validPaths = List.of("/index.html");
+    final static HttpClient httpClient = HttpClient.newHttpClient();
+
 
     public Server(Socket socket) {
         this.socket = socket;
@@ -53,18 +63,13 @@ public class Server implements Runnable {
                 if (parts.length != 3) {
                     continue;
                 }
-                for (String str : parts) {
-                    System.out.println(str);
-                }
                 final var method = parts[0];
                 final var path = parts[1];
-                final var body = parts[2];
-                final Request req;
-                if (body != null) {
-                    req = new Request(method, path, body);
-                } else {
-                    req = new Request(method, path);
-                }
+                final var uri = new URI(path);
+                final var clearedUri = Request.getUrlWithoutParameters(uri);
+                final var params = URLEncodedUtils.parse(new URI(path), StandardCharsets.UTF_8);
+                final var req = new Request(method, clearedUri);
+                req.setParams(params);
                 if (!Server.validPaths.contains(req.getUri())) {
                     out.write((
                             "HTTP/1.1 404 Not Found\r\n" +
@@ -77,7 +82,7 @@ public class Server implements Runnable {
                 }
                 HandlersMap.getHandler(req).handle(req, out);
             }
-        } catch (IOException | HandlerException e) {
+        } catch (IOException | URISyntaxException | HandlerException e) {
             e.printStackTrace();
             System.err.printf("Server error: %s", e.getMessage());
         }
