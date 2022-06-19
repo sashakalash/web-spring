@@ -82,6 +82,7 @@ public class Server implements Runnable {
         } catch (IOException | HandlerException e) {
             e.printStackTrace();
             System.err.printf("Server error: %s", e.getMessage());
+
         }
     }
 
