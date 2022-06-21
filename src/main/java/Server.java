@@ -69,10 +69,9 @@ public class Server implements Runnable {
                     notFoundReq(out);
                     continue;
                 }
-                //TO DO get body from request
-                final var body = parts[2];
+                final var body = requestLine.substring(requestLine.indexOf("\\r\\n\\r\\n"));
                 final Request req;
-                if (body != null) {
+                if (!body.equals("")) {
                     req = new Request(method, path, body);
                 } else {
                     req = new Request(method, path);
