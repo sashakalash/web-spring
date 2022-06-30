@@ -15,9 +15,15 @@ public class Server implements Runnable {
     final String WEB_ROOT = ".";
     static final int PORT = 9999;
     final String WEB_ROOT_DIR = "public";
-    final String MAIN_INDEX = "/index.html";
-    final static int THREADS_QUANTITY_VALUE = 2;
-    public static final List<String> validPaths = List.of("/index.html");
+//    final String MAIN_INDEX = "/index.html";
+//    final String EVENTS_INDEX = "/events.html";
+//    final String FORMS_INDEX = "/forms.html";
+    final static int THREADS_QUANTITY_VALUE = 64;
+    public static final List<String> validPaths = List.of(
+            "/index.html",
+            "/events.html",
+            "/forms.html"
+    );
     final static ExecutorService pool = Executors.newFixedThreadPool(THREADS_QUANTITY_VALUE);
     public Socket serverSocket;
 
@@ -74,25 +80,6 @@ public class Server implements Runnable {
 
                 final var filePath = Path.of(WEB_ROOT, WEB_ROOT_DIR, path);
                 final var mimeType = Files.probeContentType(filePath);
-
-                // special case for classic
-                if (path.equals(MAIN_INDEX)) {
-                    final var template = Files.readString(filePath);
-                    final var content = template.replace(
-                            "{time}",
-                            LocalDateTime.now().toString()
-                    ).getBytes();
-                    out.write((
-                            "HTTP/1.1 200 OK\r\n" +
-                                    "Content-Type: " + mimeType + "\r\n" +
-                                    "Content-Length: " + content.length + "\r\n" +
-                                    "Connection: close\r\n" +
-                                    "\r\n"
-                    ).getBytes());
-                    out.write(content);
-                    out.flush();
-                    continue;
-                }
 
                 final var length = Files.size(filePath);
                 out.write((
