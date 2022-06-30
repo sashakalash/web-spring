@@ -1,33 +1,30 @@
 package interfaces;
+import java.io.BufferedOutputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class HandlersMap {
-    private static final Map<String, Map<String, Handler>> handlers = new HashMap<>();
+    private static final Map<String, Map<String, Handler>> handlers = new ConcurrentHashMap<>();
 
     public static Handler getHandler(Request req) throws HandlerException {
         if (handlers.containsKey(req.getMethod())) {
-            if (handlers.get(req.getMethod()).containsKey(req.getUri())) {
-                return handlers.get(req.getMethod()).get(req.getUri());
-            } else {
-                throw new HandlerException("Incorrect URI! No handler for this uri:" + " " + req.getUri() + "!");
-            }
+            return handlers.get(req.getMethod()).getOrDefault(req.getUri(), null);
         } else {
-            throw new HandlerException("Incorrect method! No handler for this request:" + " " + req.getMethod() + "!");
+            return null;
         }
     }
 
     public static void addHandler(Request req, Handler hand) throws HandlerException {
-        final var path = req.getUri() + ".html";
         if (handlers.containsKey(req.getMethod())) {
-            if (!handlers.get(req.getMethod()).containsKey(path)) {
-                handlers.get(req.getMethod()).put(path, hand);
+            if (!handlers.get(req.getMethod()).containsKey(req.getUri())) {
+                handlers.get(req.getMethod()).put(req.getUri(), hand);
             } else {
                 throw new HandlerException("Handler is already exist for this URI!");
             }
         } else {
             final var map = new HashMap<String, Handler>();
-            map.put(path, hand);
+            map.put(req.getUri(), hand);
             handlers.put(req.getMethod(), map);
         }
     }

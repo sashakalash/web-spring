@@ -1,18 +1,19 @@
 package interfaces;
 
 import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class Request {
-    private String method;
-    private String uri;
-    private String body;
-    private Map<String, String> params = new HashMap<>();
+    private final String method;
+    private final String uri;
+    private final Map<String, String> params = new HashMap<>();
 
     public Map<String, String> getQueryParams() {
         return params;
@@ -23,23 +24,15 @@ public class Request {
     }
 
     public void setParams(List<NameValuePair> params) {
-        params.stream().forEach(param -> this.params.put(param.getName(), param.getValue()));
+        params.forEach(param -> this.params.put(param.getName(), param.getValue()));
     }
 
-    public Request(String method, String uri) {
+    public Request(String method, String path) throws URISyntaxException {
         this.method = method;
-        this.uri = uri;
-    }
-
-    public String getBody() {
-        return body;
-    }
-
-
-    public Request(String method, String uri, String body) {
-        this.method = method;
-        this.uri = uri;
-        this.body = body;
+        final var uri = new URI(path);
+        this.uri = Request.getUrlWithoutParameters(uri);
+        final var params = URLEncodedUtils.parse(uri, StandardCharsets.UTF_8);
+        setParams(params);
     }
 
     public String getMethod() {
