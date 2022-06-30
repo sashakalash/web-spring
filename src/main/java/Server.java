@@ -20,7 +20,7 @@ public class Server implements Runnable {
     public static final String GET = "GET";
     public static final String POST = "POST";
     final static List<String> allowedMethods = List.of(GET, POST);
-    public static Socket socket;
+    public Socket socket;
     public static final List<String> validPaths = List.of("/index.html");
 
     public Server(Socket socket) {
@@ -69,9 +69,11 @@ public class Server implements Runnable {
                     notFoundReq(out);
                     continue;
                 }
-                final var body = requestLine.substring(requestLine.indexOf("\\r\\n\\r\\n"));
+                final var index = requestLine.indexOf("\\r\\n\\r\\n");
+                String body;
                 final Request req;
-                if (!body.equals("")) {
+                if (index != -1) {
+                    body = requestLine.substring(index);
                     req = new Request(method, path, body);
                 } else {
                     req = new Request(method, path);
