@@ -6,7 +6,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -15,9 +14,6 @@ public class Server implements Runnable {
     final String WEB_ROOT = ".";
     static final int PORT = 9999;
     final String WEB_ROOT_DIR = "public";
-//    final String MAIN_INDEX = "/index.html";
-//    final String EVENTS_INDEX = "/events.html";
-//    final String FORMS_INDEX = "/forms.html";
     final static int THREADS_QUANTITY_VALUE = 64;
     public static final List<String> validPaths = List.of(
             "/index.html",
@@ -52,18 +48,17 @@ public class Server implements Runnable {
     public void run() {
         try (final var in = new BufferedReader(new InputStreamReader(serverSocket.getInputStream()));
              final var out = new BufferedOutputStream(serverSocket.getOutputStream())) {
-            while (true) {
                 // read only request line for simplicity
                 // must be in form GET /path HTTP/1.1
                 final var requestLine = in.readLine();
                 if (requestLine == null) {
-                    continue;
+                    return;
                 }
                 final var parts = requestLine.split(" ");
 
                 if (parts.length != 3) {
                     // just close socket
-                    continue;
+                    return;
                 }
 
                 final var path = parts[1];
@@ -75,7 +70,7 @@ public class Server implements Runnable {
                                     "\r\n"
                     ).getBytes());
                     out.flush();
-                    continue;
+                    return;
                 }
 
                 final var filePath = Path.of(WEB_ROOT, WEB_ROOT_DIR, path);
@@ -91,7 +86,6 @@ public class Server implements Runnable {
                 ).getBytes());
                 Files.copy(filePath, out);
                 out.flush();
-            }
         } catch (IOException e) {
             e.printStackTrace();
             System.err.printf("Server error: %s", e.getMessage());
