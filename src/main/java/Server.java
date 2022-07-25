@@ -10,7 +10,6 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URISyntaxException;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,25 +43,23 @@ public class Server implements Runnable {
     public void run() {
         try (final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              final var out = new BufferedOutputStream(socket.getOutputStream())) {
-            while (true) {
-                final var requestLine = in.readLine();
-                if (requestLine == null) {
-                    continue;
-                }
-                final var parts = requestLine.split(" ");
-                if (parts.length != 3) {
-                    continue;
-                }
-                final var method = parts[0];
-                final var path = parts[1];
-                final var req = new Request(method, path);
-                final var handler = HandlersMap.getHandler(req);
-                if (handler == null) {
-                    notFound(out);
-                    continue;
-                }
-                handler.handle(req, out);
+            final var requestLine = in.readLine();
+            if (requestLine == null) {
+                return;
             }
+            final var parts = requestLine.split(" ");
+            if (parts.length != 3) {
+                return;
+            }
+            final var method = parts[0];
+            final var path = parts[1];
+            final var req = new Request(method, path);
+            final var handler = HandlersMap.getHandler(req);
+            if (handler == null) {
+                notFound(out);
+                return;
+            }
+            handler.handle(req, out);
         } catch (IOException | URISyntaxException | HandlerException e) {
             e.printStackTrace();
             System.err.printf("Server error: %s", e.getMessage());
